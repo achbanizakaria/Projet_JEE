@@ -1,4 +1,4 @@
-package com.example.demo.dao.enteties;
+package com.example.demo.dao.entities;
 
 
 import jakarta.persistence.*;
