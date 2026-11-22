@@ -8,4 +8,5 @@ import lombok.Setter;
 public class MotDePasseForm {
     @NotBlank private String ancienMotDePasse;
     @NotBlank @Size(min = 8, max = 100) private String nouveauMotDePasse;
+    @NotBlank private String confirmationNouveauMotDePasse;
 }

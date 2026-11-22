@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Connexion')}"></head>
+<body class="bg-light">
+<div class="container" style="max-width: 420px;">
+    <h1 class="h4 mt-5 mb-4 text-center">Gestion de tournois universitaires</h1>
+
+    <div class="alert alert-danger" th:if="${param.erreur}">E-mail ou mot de passe incorrect.</div>
+    <div class="alert alert-success" th:if="${param.inscrit}">Compte créé : vous pouvez vous connecter.</div>
+    <div class="alert alert-info" th:if="${param.deconnecte}">Vous êtes déconnecté.</div>
+    <div class="alert alert-success" th:if="${param.motDePasseChange}">Mot de passe modifié : reconnectez-vous.</div>
+
+    <form th:action="@{/connexion}" method="post" class="card card-body">
+        <label for="email" class="form-label">Adresse e-mail</label>
+        <input type="email" id="email" name="email" class="form-control mb-3" required autofocus>
+        <label for="motDePasse" class="form-label">Mot de passe</label>
+        <input type="password" id="motDePasse" name="motDePasse" class="form-control mb-3" required>
+        <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+    </form>
+    <p class="text-center mt-3">Pas de compte ? <a th:href="@{/inscription}">Créer un compte joueur</a></p>
+</div>
+</body>
+</html>
