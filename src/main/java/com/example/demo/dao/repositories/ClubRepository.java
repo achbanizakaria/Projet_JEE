@@ -5,4 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ClubRepository extends JpaRepository<Club, Long> {
     boolean existsByNom(String nom);
+    boolean existsByNomAndIdNot(String nom, Long id);
+
 }

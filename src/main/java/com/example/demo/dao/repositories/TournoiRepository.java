@@ -9,4 +9,5 @@ import java.util.List;
 public interface TournoiRepository extends JpaRepository<Tournoi, Long> {
     List<Tournoi> findByStatutOrderByDateDebutDesc(StatutTournoi statut);
     List<Tournoi> findByStatutNotOrderByDateDebutDesc(StatutTournoi statut);
+    List<Tournoi> findByOrganisateurIdOrderByDateDebutDesc(Long organisateurId);
 }

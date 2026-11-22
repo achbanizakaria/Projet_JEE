@@ -12,4 +12,6 @@ public interface JoueurRepository extends JpaRepository<Joueur, Long> {
     Optional<Joueur> findByEquipeIdAndEstCapitaineTrue(Long equipeId);
     boolean existsByEquipeIdAndEstCapitaineTrue(Long equipeId);
     boolean existsByEquipeIdAndNumeroMaillot(Long equipeId, Integer numeroMaillot);
+    long countByEquipeIdAndEstCapitaineTrue(Long equipeId);
+    boolean existsByEquipeIdAndNumeroMaillotAndIdNot(Long equipeId, Integer numeroMaillot, Long id);
 }
