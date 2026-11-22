@@ -27,4 +27,8 @@ public abstract class Utilisateur {
 
     @Column(name = "mot_de_passe", nullable = false)
     private String motDePasse; // haché avec BCrypt
+
+    /** Vrai tant que l'utilisateur n'a pas remplacé le mot de passe temporaire reçu de son capitaine. */
+    @Column(name = "mot_de_passe_temporaire", columnDefinition = "boolean default false")
+    private boolean motDePasseTemporaire = false;
 }

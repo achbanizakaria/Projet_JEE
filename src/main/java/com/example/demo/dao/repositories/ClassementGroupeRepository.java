@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface ClassementGroupeRepository extends JpaRepository<ClassementGroupe, Long> {
     List<ClassementGroupe> findByGroupeId(Long groupeId);
     Optional<ClassementGroupe> findByGroupeIdAndEquipeId(Long groupeId, Long equipeId);
+    List<ClassementGroupe> findByGroupeIdOrderByRangAsc(Long groupeId);
 }
