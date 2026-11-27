@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Tournoi')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 m-0" th:text="${tournoi.nom}">Coupe</h1>
+        <span class="badge text-bg-primary fs-6" th:text="#{${'statut.tournoi.' + tournoi.statut}}">Inscriptions ouvertes</span>
+    </div>
+
+    <div class="card card-body mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Sport :</strong> <span th:text="${tournoi.sport}">Football à 5</span></p>
+                <p class="mb-1"><strong>Période :</strong>
+                    <span th:text="${#temporals.format(tournoi.dateDebut, 'dd/MM/yyyy')}">10/01/2027</span> au
+                    <span th:text="${#temporals.format(tournoi.dateFin, 'dd/MM/yyyy')}">20/01/2027</span></p>
+                <p class="mb-1"><strong>Groupes :</strong> <span th:text="${tournoi.nbGroupes}">4</span>
+                    (<span th:text="${tournoi.nbQualifiesParGroupe}">2</span> qualifiés par groupe)</p>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Matchs :</strong> <span th:text="${tournoi.dureeMatchMinutes}">30</span> min,
+                    repos <span th:text="${tournoi.reposMinutes}">0</span> min</p>
+                <p class="mb-1"><strong>Stade ouvert :</strong>
+                    <span th:text="${#temporals.format(tournoi.heureOuverture, 'HH:mm')}">12:30</span> –
+                    <span th:text="${#temporals.format(tournoi.heureFermeture, 'HH:mm')}">14:30</span></p>
+                <p class="mb-1"><strong>Score de forfait :</strong> <span th:text="${tournoi.scoreForfait}">3</span>–0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tirage possible : au moins (groupes × max(2, qualifiés par groupe)) équipes validées -->
+    <div class="alert alert-info" th:if="${tournoi.statut.name() == 'INSCRIPTION_CLOSE'}"
+         th:with="valides=${#lists.size(inscriptions.?[statut.name() == 'VALIDEE'])},
+                  minimum=${tournoi.nbGroupes * (tournoi.nbQualifiesParGroupe > 2 ? tournoi.nbQualifiesParGroupe : 2)}">
+        <span th:text="${valides}">8</span> équipe(s) validée(s) ; il en faut au moins
+        <span th:text="${minimum}">8</span> pour effectuer le tirage au sort.
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 m-0">Inscriptions</h2>
+        <div class="d-flex gap-2">
+            <form th:if="${tournoi.statut.name() == 'INSCRIPTION_OUVERTE'}"
+                  th:action="@{/organisateur/tournois/{id}/cloturer-inscriptions(id=${tournoi.id})}" method="post"
+                  onsubmit="return confirm('Clôturer les inscriptions ? Plus aucune demande ne sera possible.');">
+                <button type="submit" class="btn btn-warning">Clôturer les inscriptions</button>
+            </form>
+            <form th:if="${tournoi.statut.name() == 'INSCRIPTION_CLOSE'}"
+                  th:action="@{/organisateur/tournois/{id}/rouvrir-inscriptions(id=${tournoi.id})}" method="post">
+                <button type="submit" class="btn btn-outline-warning">Rouvrir les inscriptions</button>
+            </form>
+            <form th:if="${tournoi.statut.name() == 'INSCRIPTION_CLOSE'}"
+                  th:action="@{/organisateur/tournois/{id}/tirage(id=${tournoi.id})}" method="post"
+                  onsubmit="return confirm('Effectuer le tirage au sort ? Les groupes et le calendrier des poules seront générés.');">
+                <button type="submit" class="btn btn-success">Effectuer le tirage au sort</button>
+            </form>
+            <form th:if="${tournoi.statut.name() == 'TIRAGE_EFFECTUE'}"
+                  th:action="@{/organisateur/tournois/{id}/annuler-tirage(id=${tournoi.id})}" method="post"
+                  onsubmit="return confirm('Annuler le tirage ? Les groupes et le calendrier seront supprimés.');">
+                <button type="submit" class="btn btn-outline-danger">Annuler le tirage</button>
+            </form>
+            <a class="btn btn-outline-primary" th:if="${tournoi.statut.name() != 'INSCRIPTION_OUVERTE'}"
+               th:href="@{/consultation/tournois/{id}(id=${tournoi.id})}">Groupes, calendrier et classements</a>
+        </div>
+    </div>
+
+    <table class="table table-sm bg-white align-middle">
+        <thead>
+        <tr><th>Équipe</th><th>Club</th><th>Effectif</th><th>Capitaines</th><th>Demande du</th><th>État</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+        <tr th:each="i : ${inscriptions}" th:with="avantTirage=${tournoi.statut.name() == 'INSCRIPTION_OUVERTE' or tournoi.statut.name() == 'INSCRIPTION_CLOSE'}">
+            <td th:text="${i.equipe}">Équipe</td>
+            <td th:text="${i.club}">Club</td>
+            <td th:text="${i.effectif}" th:classappend="${i.effectif < 6} ? 'text-danger fw-bold'">6</td>
+            <td th:text="${i.capitaines}" th:classappend="${i.capitaines != 1} ? 'text-danger fw-bold'">1</td>
+            <td th:text="${#temporals.format(i.dateInscription, 'dd/MM/yyyy')}">10/12/2026</td>
+            <td>
+                <span th:text="#{${'statut.inscription.' + i.statut}}">En attente</span>
+                <div class="small text-muted" th:if="${i.motifRefus != null}" th:text="'Motif : ' + ${i.motifRefus}"></div>
+                <div class="small text-muted" th:if="${i.motifRetrait != null}" th:text="${i.motifRetrait}"></div>
+            </td>
+            <td>
+                <form th:if="${avantTirage and i.statut.name() == 'VALIDEE'}" class="d-flex gap-1" method="post"
+                      th:action="@{/organisateur/tournois/{id}/inscriptions/{iid}/retirer(id=${tournoi.id},iid=${i.id})}">
+                    <input name="motif" aria-label="Motif du retrait" placeholder="Motif du retrait" class="form-control form-control-sm" required maxlength="255">
+                    <button class="btn btn-sm btn-outline-danger">Enregistrer le retrait</button>
+                </form>
+                <form th:if="${avantTirage and i.statut.name() == 'REFUSEE'}" method="post"
+                      th:action="@{/organisateur/tournois/{id}/inscriptions/{iid}/valider(id=${tournoi.id},iid=${i.id})}">
+                    <button class="btn btn-sm btn-outline-success" th:disabled="${i.effectif < 6 or i.capitaines != 1}">Repêcher l’équipe</button>
+                </form>
+                <div th:if="${i.statut.name() == 'EN_ATTENTE' and tournoi.statut.name() == 'INSCRIPTION_OUVERTE'}"
+                     class="d-flex gap-2">
+                    <form th:action="@{/organisateur/tournois/{id}/inscriptions/{iid}/valider(id=${tournoi.id},iid=${i.id})}" method="post">
+                        <button type="submit" class="btn btn-sm btn-success"
+                                th:disabled="${i.effectif < 6 or i.capitaines != 1}">Valider</button>
+                    </form>
+                    <form th:action="@{/organisateur/tournois/{id}/inscriptions/{iid}/refuser(id=${tournoi.id},iid=${i.id})}" method="post"
+                          class="d-flex gap-1">
+                        <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif du refus" required>
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Refuser</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(inscriptions)}"><td colspan="7" class="text-muted">Aucune demande d'inscription pour le moment.</td></tr>
+        </tbody>
+    </table>
+    <section th:unless="${#lists.isEmpty(matchs)}" class="mb-4">
+        <h2 class="h5">Matchs du tournoi</h2>
+        <p class="text-muted">Ouvrez une feuille de match pour saisir les participants, le résultat ou un forfait.</p>
+        <div class="table-responsive"><table th:replace="~{fragments/matchs :: tableMatchs(${matchs})}"></table></div>
+        <form th:each="g : ${aDepartager}" method="post" class="mb-2"
+              th:action="@{/organisateur/tournois/{id}/groupes/{gid}/departager(id=${tournoi.id},gid=${g.id})}">
+            <button class="btn btn-warning" th:text="|Tirer au sort le départage du groupe ${g.nom}|"></button>
+        </form>
+        <form th:if="${tournoi.statut.name() == 'PHASE_GROUPES' and tousJoues and #lists.isEmpty(aDepartager)}"
+              th:action="@{/organisateur/tournois/{id}/phase-eliminatoire(id=${tournoi.id})}" method="post">
+            <button class="btn btn-primary">Générer la phase éliminatoire</button>
+        </form>
+        <form th:if="${tournoi.statut.name() == 'PHASE_ELIMINATOIRE' and tousJoues}"
+              th:action="@{/organisateur/tournois/{id}/cloturer(id=${tournoi.id})}" method="post">
+            <button class="btn btn-primary">Clôturer le tournoi</button>
+        </form>
+    </section>
+    <a class="btn btn-link" th:href="@{/organisateur/tournois}">← Retour aux tournois</a>
+</div>
+</body>
+</html>

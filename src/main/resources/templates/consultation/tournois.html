@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Calendrier et classements')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+
+    <h1 class="h4 mb-3">Tournois en cours</h1>
+    <table class="table table-sm bg-white align-middle">
+        <thead><tr><th>Nom</th><th>Sport</th><th>Début</th><th>Fin</th><th>État</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="t : ${enCours}">
+            <td th:text="${t.nom}">Coupe</td>
+            <td th:text="${t.sport}">Football à 5</td>
+            <td th:text="${#temporals.format(t.dateDebut, 'dd/MM/yyyy')}">10/01/2027</td>
+            <td th:text="${#temporals.format(t.dateFin, 'dd/MM/yyyy')}">20/01/2027</td>
+            <td th:text="#{${'statut.tournoi.' + t.statut}}">Phase de groupes</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-primary" th:href="@{/consultation/tournois/{id}(id=${t.id})}">Voir</a></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(enCours)}"><td colspan="6" class="text-muted">Aucun tournoi en cours.</td></tr>
+        </tbody>
+    </table>
+
+    <h2 class="h5 mt-4 mb-3">Historique</h2>
+    <table class="table table-sm bg-white align-middle">
+        <thead><tr><th>Nom</th><th>Sport</th><th>Début</th><th>Fin</th><th>Champion</th><th>Finaliste</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="t : ${termines}">
+            <td th:text="${t.nom}">Coupe</td>
+            <td th:text="${t.sport}">Football à 5</td>
+            <td th:text="${#temporals.format(t.dateDebut, 'dd/MM/yyyy')}">10/01/2027</td>
+            <td th:text="${#temporals.format(t.dateFin, 'dd/MM/yyyy')}">20/01/2027</td>
+            <td th:text="${t.champion}">Équipe</td>
+            <td th:text="${t.finaliste}">Équipe</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-primary" th:href="@{/consultation/tournois/{id}(id=${t.id})}">Voir</a></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(termines)}"><td colspan="7" class="text-muted">Aucun tournoi terminé.</td></tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

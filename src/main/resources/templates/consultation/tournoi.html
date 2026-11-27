@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Tournoi')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 m-0" th:text="${tournoi.nom}">Coupe</h1>
+            <small class="text-muted">
+                <span th:text="${tournoi.sport}">Football à 5</span> –
+                du <span th:text="${#temporals.format(tournoi.dateDebut, 'dd/MM/yyyy')}">10/01/2027</span>
+                au <span th:text="${#temporals.format(tournoi.dateFin, 'dd/MM/yyyy')}">20/01/2027</span>
+            </small>
+        </div>
+        <span class="badge text-bg-primary fs-6" th:text="#{${'statut.tournoi.' + tournoi.statut}}">Phase de groupes</span>
+    </div>
+
+    <div class="alert alert-info" th:if="${#lists.isEmpty(groupes)}">
+        Le tirage au sort n'a pas encore eu lieu : les groupes et le calendrier apparaîtront après le tirage.
+    </div>
+
+    <!-- Classements des groupes -->
+    <div th:if="${!#lists.isEmpty(groupes)}">
+        <h2 class="h5 mb-3">Groupes et classements</h2>
+        <div class="row">
+            <div class="col-lg-6" th:each="g : ${groupes}">
+                <h3 class="h6">Groupe <span th:text="${g.nom}">A</span></h3>
+                <table class="table table-sm bg-white text-center align-middle">
+                    <thead>
+                    <tr><th>#</th><th class="text-start">Équipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>BP</th><th>BC</th><th>Diff</th><th>Pts</th><th>FP</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="l : ${g.lignes}">
+                        <td th:text="${l.rang > 0} ? ${l.rang} : '–'">1</td>
+                        <td class="text-start" th:text="${l.equipe}">Équipe</td>
+                        <td th:text="${l.joues}">0</td>
+                        <td th:text="${l.gagnes}">0</td>
+                        <td th:text="${l.nuls}">0</td>
+                        <td th:text="${l.perdus}">0</td>
+                        <td th:text="${l.butsPour}">0</td>
+                        <td th:text="${l.butsContre}">0</td>
+                        <td th:text="${l.difference}">0</td>
+                        <td class="fw-bold" th:text="${l.points}">0</td>
+                        <td th:text="${l.fairPlay}">0</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <p class="form-text">J : joués – G : gagnés – N : nuls – P : perdus – BP / BC : buts pour / contre – Pts : points – FP : fair-play.
+            Départage : points, différence de buts, buts marqués, confrontation directe, fair-play, tirage au sort.</p>
+    </div>
+
+    <!-- Phase éliminatoire -->
+    <div th:if="${!#lists.isEmpty(tableau)}" class="mt-4">
+        <h2 class="h5 mb-3">Phase éliminatoire</h2>
+        <div th:replace="~{fragments/matchs :: tableMatchs(${tableau})}"></div>
+    </div>
+
+    <!-- Calendrier complet -->
+    <div th:if="${!#lists.isEmpty(matchs)}" class="mt-4">
+        <h2 class="h5 mb-3">Calendrier</h2>
+        <div th:replace="~{fragments/matchs :: tableMatchs(${matchs})}"></div>
+    </div>
+
+    <a class="btn btn-link mt-3" th:href="@{/consultation/tournois}">← Retour aux tournois</a>
+</div>
+
+</body>
+</html>

@@ -32,6 +32,9 @@ public class EquipeMatch {
     @Column(nullable = false)
     private boolean forfait;
 
+    @Column(name = "composition_organisateur", nullable = false, columnDefinition = "boolean default false")
+    private boolean compositionOrganisateur;
+
     @Column(name = "motif_forfait")
     private String motifForfait;
 

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Clubs')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+    <h1 class="h4 mb-3">Clubs</h1>
+    <div class="row">
+        <div class="col-md-7">
+            <table class="table table-sm bg-white align-middle">
+                <thead><tr><th>Nom</th><th>Logo</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="c : ${clubs}">
+                    <td th:text="${c.nom}">Club</td>
+                    <td th:text="${c.logo}">logo.png</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary"
+                           th:href="@{/organisateur/clubs/{id}/modifier(id=${c.id})}">Modifier</a>
+                        <form th:action="@{/organisateur/clubs/{id}/supprimer(id=${c.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Supprimer ce club ?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(clubs)}"><td colspan="3" class="text-muted">Aucun club pour le moment.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-5">
+            <form th:action="@{/organisateur/clubs}" th:object="${clubForm}" method="post" class="card card-body">
+                <h2 class="h6">Nouveau club</h2>
+                <label for="nom" class="form-label">Nom</label>
+                <input type="text" id="nom" th:field="*{nom}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('nom')}" th:errors="*{nom}"></div>
+                <label for="logo" class="form-label mt-2">Logo (chemin ou adresse, facultatif)</label>
+                <input type="text" id="logo" th:field="*{logo}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('logo')}" th:errors="*{logo}"></div>
+                <button type="submit" class="btn btn-primary mt-3">Créer</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

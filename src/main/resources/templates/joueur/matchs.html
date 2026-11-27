@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Mes matchs')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<main class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+    <h1 class="h4">Mes matchs</h1>
+    <p th:if="${#lists.isEmpty(matchs)}">Aucun match programmé pour votre équipe.</p>
+    <div th:unless="${#lists.isEmpty(matchs)}" class="table-responsive">
+        <table th:replace="~{fragments/matchs :: tableMatchs(${matchs})}"></table>
+    </div>
+</main>
+</body></html>

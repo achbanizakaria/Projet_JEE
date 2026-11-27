@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dao.entities.*;
 import com.example.demo.dao.repositories.*;
 import com.example.demo.dto.TournoiForm;
+import com.example.demo.dto.Vues;
 import com.example.demo.dto.Vues.TournoiResume;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,10 @@ public class TournoiService {
     public TournoiResume creer(Long organisateurId, TournoiForm f) {
         Organisateur organisateur = acces.organisateur(organisateurId);
         valider(f);
+        String nom = f.getNom().trim();
+        if (tournoiRepository.existsByNomIgnoreCase(nom)) {
+            throw new RegleMetierException("Un tournoi porte déjà ce nom : choisissez un autre nom");
+        }
         Tournoi t = new Tournoi();
         t.setNom(f.getNom().trim());
         t.setSport(f.getSport().trim());
@@ -57,7 +62,7 @@ public class TournoiService {
     /** Ferme les inscriptions ; toutes les demandes doivent avoir été traitées. */
     @Transactional
     public void cloturerInscriptions(Long organisateurId, Long tournoiId) {
-        Tournoi t = acces.tournoiDe(organisateurId, tournoiId);
+        Tournoi t = acces.modifierTournoi(organisateurId, tournoiId);
         if (t.getStatut() != StatutTournoi.INSCRIPTION_OUVERTE) {
             throw new RegleMetierException("Les inscriptions ne sont pas ouvertes");
         }
@@ -66,11 +71,36 @@ public class TournoiService {
         }
         t.setStatut(StatutTournoi.INSCRIPTION_CLOSE);
     }
+    /** Paramètres complets d'un tournoi, pour son organisateur. */
+    @Transactional(readOnly = true)
+    public Vues.TournoiDetail detail(Long organisateurId, Long tournoiId) {
+        Tournoi t = acces.tournoiDe(organisateurId, tournoiId);
+        return new Vues.TournoiDetail(t.getId(), t.getNom(), t.getSport(), t.getDateDebut(), t.getDateFin(),
+                t.getStatut(), t.getNbGroupes(), t.getNbQualifiesParGroupe(), t.getDureeMatchMinutes(),
+                t.getHeureOuverture(), t.getHeureFermeture(), t.getReposMinutes(), t.getScoreForfait());
+    }
 
+    /**
+     * Rouvre les inscriptions, tant que le tirage n'a pas eu lieu (par exemple pour accepter une équipe en retard).
+     * Après un tirage, il faut d'abord l'annuler (TirageService.annulerTirage), ce qui ramène le tournoi
+     * à l'état « inscriptions closes ».
+     */
+    @Transactional
+    public void rouvrirInscriptions(Long organisateurId, Long tournoiId) {
+        Tournoi t = acces.modifierTournoi(organisateurId, tournoiId);
+        if (t.getStatut() == StatutTournoi.INSCRIPTION_OUVERTE) {
+            throw new RegleMetierException("Les inscriptions sont déjà ouvertes");
+        }
+        if (t.getStatut() != StatutTournoi.INSCRIPTION_CLOSE) {
+            throw new RegleMetierException(
+                    "Réouverture impossible : le tirage a déjà eu lieu (annulez d'abord le tirage)");
+        }
+        t.setStatut(StatutTournoi.INSCRIPTION_OUVERTE);
+    }
     /** Clôture après la finale : rangs finaux 1 à 4, puis archivage. */
     @Transactional
     public void cloturer(Long organisateurId, Long tournoiId) {
-        Tournoi t = acces.tournoiDe(organisateurId, tournoiId);
+        Tournoi t = acces.modifierTournoi(organisateurId, tournoiId);
         if (t.getStatut() != StatutTournoi.PHASE_ELIMINATOIRE) {
             throw new RegleMetierException("Le tournoi n'est pas en phase éliminatoire");
         }

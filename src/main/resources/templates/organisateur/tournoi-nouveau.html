@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Nouveau tournoi')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container" style="max-width: 720px;">
+    <h1 class="h4 mb-3">Nouveau tournoi</h1>
+    <form th:action="@{/organisateur/tournois/nouveau}" th:object="${tournoiForm}" method="post" class="card card-body">
+
+        <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}">
+            <div th:each="e : ${#fields.globalErrors()}" th:text="${e}"></div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label for="nom" class="form-label">Nom du tournoi</label>
+                <input type="text" id="nom" th:field="*{nom}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('nom')}" th:errors="*{nom}"></div>
+            </div>
+            <div class="col-md-4">
+                <label for="sport" class="form-label">Sport</label>
+                <input type="text" id="sport" th:field="*{sport}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('sport')}" th:errors="*{sport}"></div>
+            </div>
+            <div class="col-md-6">
+                <label for="dateDebut" class="form-label">Date de début</label>
+                <input type="date" id="dateDebut" th:field="*{dateDebut}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('dateDebut')}" th:errors="*{dateDebut}"></div>
+            </div>
+            <div class="col-md-6">
+                <label for="dateFin" class="form-label">Date de fin</label>
+                <input type="date" id="dateFin" th:field="*{dateFin}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('dateFin')}" th:errors="*{dateFin}"></div>
+            </div>
+            <div class="col-md-6">
+                <label for="nbGroupes" class="form-label">Nombre de groupes</label>
+                <input type="number" id="nbGroupes" th:field="*{nbGroupes}" class="form-control" min="1">
+                <div class="text-danger" th:if="${#fields.hasErrors('nbGroupes')}" th:errors="*{nbGroupes}"></div>
+            </div>
+            <div class="col-md-6">
+                <label for="nbQualifiesParGroupe" class="form-label">Qualifiés par groupe</label>
+                <input type="number" id="nbQualifiesParGroupe" th:field="*{nbQualifiesParGroupe}" class="form-control" min="1">
+                <div class="text-danger" th:if="${#fields.hasErrors('nbQualifiesParGroupe')}" th:errors="*{nbQualifiesParGroupe}"></div>
+            </div>
+            <div class="col-12 form-text">Groupes × qualifiés par groupe doit valoir 2, 4, 8 ou 16 (tableau final complet).</div>
+        </div>
+
+        <h2 class="h6 mt-4">Paramètres du stade (modifiables)</h2>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="dureeMatchMinutes" class="form-label">Durée d'un match (min)</label>
+                <input type="number" id="dureeMatchMinutes" th:field="*{dureeMatchMinutes}" class="form-control" min="1">
+                <div class="text-danger" th:if="${#fields.hasErrors('dureeMatchMinutes')}" th:errors="*{dureeMatchMinutes}"></div>
+            </div>
+            <div class="col-md-3">
+                <label for="heureOuverture" class="form-label">Ouverture</label>
+                <input type="time" id="heureOuverture" th:field="*{heureOuverture}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('heureOuverture')}" th:errors="*{heureOuverture}"></div>
+            </div>
+            <div class="col-md-3">
+                <label for="heureFermeture" class="form-label">Fermeture</label>
+                <input type="time" id="heureFermeture" th:field="*{heureFermeture}" class="form-control">
+                <div class="text-danger" th:if="${#fields.hasErrors('heureFermeture')}" th:errors="*{heureFermeture}"></div>
+            </div>
+            <div class="col-md-3">
+                <label for="reposMinutes" class="form-label">Repos entre matchs (min)</label>
+                <input type="number" id="reposMinutes" th:field="*{reposMinutes}" class="form-control" min="0">
+                <div class="text-danger" th:if="${#fields.hasErrors('reposMinutes')}" th:errors="*{reposMinutes}"></div>
+            </div>
+            <div class="col-md-3">
+                <label for="scoreForfait" class="form-label">Score de forfait</label>
+                <input type="number" id="scoreForfait" th:field="*{scoreForfait}" class="form-control" min="0">
+                <div class="text-danger" th:if="${#fields.hasErrors('scoreForfait')}" th:errors="*{scoreForfait}"></div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Créer le tournoi</button>
+            <a class="btn btn-link" th:href="@{/organisateur/tournois}">Annuler</a>
+        </div>
+    </form>
+</div>
+</body>
+</html>

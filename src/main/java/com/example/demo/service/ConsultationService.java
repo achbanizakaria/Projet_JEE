@@ -51,7 +51,7 @@ public class ConsultationService {
 
     public List<GroupeVue> classements(Long tournoiId) {
         return groupeRepository.findByTournoiIdOrderByNomAsc(tournoiId).stream().map(g ->
-                new GroupeVue(g.getNom(),
+                new GroupeVue(g.getId(), g.getNom(),
                         classementRepository.findByGroupeIdOrderByRangAsc(g.getId()).stream()
                                 .map(c -> new LigneClassement(c.getRang() == null ? 0 : c.getRang(),
                                         c.getEquipe().getNom(), c.getJoues(), c.getGagnes(), c.getNuls(),
@@ -69,25 +69,34 @@ public class ConsultationService {
     public DetailMatch detailMatch(Long matchId) {
         Match m = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RegleMetierException("Match introuvable"));
-        return new DetailMatch(vue(m), feuille(m.getEquipeMatchs().get(0)), feuille(m.getEquipeMatchs().get(1)));
+        EquipeMatch a = m.getEquipeMatchs().get(0);
+        EquipeMatch b = m.getEquipeMatchs().get(1);
+        return new DetailMatch(m.getTournoi().getId(), vue(m), feuille(a), feuille(b),
+                a.getEquipe() == null ? null : a.getEquipe().getId(), b.getEquipe() == null ? null : b.getEquipe().getId(),
+                a.getMotifForfait(), b.getMotifForfait(), m.getTournoi().getDureeMatchMinutes());
     }
 
     public Optional<EquipeVue> monEquipe(Long joueurId) {
         Joueur j = acces.joueur(joueurId);
         if (j.getEquipe() == null) return Optional.empty();
         Equipe e = j.getEquipe();
-        List<JoueurVue> joueurs = joueurRepository.findByEquipeId(e.getId()).stream()
+        return Optional.of(new EquipeVue(e.getId(), e.getNom(), e.getClub().getNom(), e.getLogo(),
+                e.getAncienLogoPartage() != null, effectif(e.getId())));
+    }
+
+    public List<JoueurVue> effectif(Long equipeId) {
+        return joueurRepository.findByEquipeId(equipeId).stream()
                 .sorted(Comparator.comparing(Joueur::getNom))
                 .map(x -> new JoueurVue(x.getId(), x.getNom(), x.getPrenom(), x.getPoste(),
                         x.getNumeroMaillot(), x.isEstCapitaine())).toList();
-        return Optional.of(new EquipeVue(e.getId(), e.getNom(), e.getClub().getNom(), joueurs));
     }
 
     public List<MatchVue> matchsDeMonEquipe(Long joueurId) {
         Joueur j = acces.joueur(joueurId);
         if (j.getEquipe() == null) return List.of();
         return equipeMatchRepository.findByEquipeId(j.getEquipe().getId()).stream()
-                .map(EquipeMatch::getMatch).sorted(Comparator.comparingInt(Match::getNumero))
+                .map(EquipeMatch::getMatch).sorted(Comparator.comparing(Match::getDateHeure, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparingInt(Match::getNumero))
                 .map(this::vue).toList();
     }
 
@@ -119,8 +128,8 @@ public class ConsultationService {
 
     private List<LigneFeuille> feuille(EquipeMatch em) {
         return em.getJoueurs().stream()
-                .sorted(Comparator.comparing(JoueurMatch::isEstTitulaire).reversed())
-                .map(jm -> new LigneFeuille(jm.getJoueur().getPrenom() + " " + jm.getJoueur().getNom(),
+                .sorted(Comparator.comparing(JoueurMatch::isEstTitulaire).reversed().thenComparing(jm -> jm.getJoueur().getId()))
+                .map(jm -> new LigneFeuille(jm.getJoueur().getId(), jm.getJoueur().getPrenom() + " " + jm.getJoueur().getNom(),
                         jm.getJoueur().getNumeroMaillot(), jm.isEstTitulaire(), jm.getButs(),
                         jm.getCartonsJaunes(), jm.isCartonRouge(), jm.getMinuteEntree(), jm.getMinuteSortie()))
                 .toList();

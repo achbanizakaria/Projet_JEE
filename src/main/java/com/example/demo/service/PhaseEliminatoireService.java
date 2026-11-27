@@ -23,7 +23,7 @@ public class PhaseEliminatoireService {
 
     @Transactional
     public void generer(Long organisateurId, Long tournoiId) {
-        Tournoi t = acces.tournoiDe(organisateurId, tournoiId);
+        Tournoi t = acces.planifierTournoi(organisateurId, tournoiId);
         if (t.getStatut() != StatutTournoi.PHASE_GROUPES) {
             throw new RegleMetierException("La phase éliminatoire se génère pendant la phase de groupes, une seule fois");
         }

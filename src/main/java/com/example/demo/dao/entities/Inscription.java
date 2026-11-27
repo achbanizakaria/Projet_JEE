@@ -30,6 +30,9 @@ public class Inscription {
     @Column(name = "motif_refus")
     private String motifRefus;
 
+    @Column(name = "motif_retrait")
+    private String motifRetrait;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tournoi_id")
     private Tournoi tournoi;
