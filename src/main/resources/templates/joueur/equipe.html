@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Mon équipe')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+
+    <!-- Mot de passe temporaire : transmis une seule fois, au capitaine qui vient d'ajouter le joueur -->
+    <div class="alert alert-warning" th:if="${motDePasseTemporaire}">
+        <strong>Compte créé pour <span th:text="${compteCree}">joueur@ensam.ma</span>.</strong><br>
+        Mot de passe temporaire : <code class="fs-5" th:text="${motDePasseTemporaire}">AbCd123456</code><br>
+        Transmettez-le au joueur. Il ne sera plus affiché et devra être remplacé à la première connexion.
+    </div>
+
+    <!-- Joueur sans équipe : création -->
+    <div th:if="${equipe == null}" style="max-width: 560px;">
+        <h1 class="h4 mb-3">Mon équipe</h1>
+        <p class="text-muted">Vous n'appartenez à aucune équipe. Créez la vôtre : vous en serez le capitaine.</p>
+
+        <div class="alert alert-info" th:if="${#lists.isEmpty(clubs)}">
+            Aucun club n'existe encore : demandez à l'organisateur d'en créer un.
+        </div>
+
+        <form th:if="${!#lists.isEmpty(clubs)}" th:action="@{/joueur/equipe/creer}" th:object="${equipeForm}"
+              method="post" class="card card-body">
+            <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}">
+                <div th:each="e : ${#fields.globalErrors()}" th:text="${e}"></div>
+            </div>
+            <label for="nom" class="form-label">Nom de l'équipe</label>
+            <input type="text" id="nom" th:field="*{nom}" class="form-control">
+            <div class="text-danger" th:if="${#fields.hasErrors('nom')}" th:errors="*{nom}"></div>
+
+            <label for="clubId" class="form-label mt-2">Club</label>
+            <select id="clubId" th:field="*{clubId}" class="form-select">
+                <option value="">Choisir un club…</option>
+                <option th:each="c : ${clubs}" th:value="${c.id}" th:text="${c.nom}">Club</option>
+            </select>
+            <div class="text-danger" th:if="${#fields.hasErrors('clubId')}" th:errors="*{clubId}"></div>
+
+            <label for="logo" class="form-label mt-2">Logo (chemin ou adresse, facultatif)</label>
+            <input type="text" id="logo" th:field="*{logo}" class="form-control">
+            <div class="text-danger" th:if="${#fields.hasErrors('logo')}" th:errors="*{logo}"></div>
+
+            <button type="submit" class="btn btn-primary mt-3">Créer mon équipe</button>
+        </form>
+    </div>
+
+    <!-- Joueur avec équipe -->
+    <div th:if="${equipe != null}">
+        <p class="alert alert-warning" th:if="${equipe.logoPartage}">Votre ancien logo était partagé avec une équipe créée avant la vôtre. Le capitaine doit choisir un nouveau logo.</p>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="h4 m-0">
+                <span th:text="${equipe.nom}">Les Lions</span>
+                <small class="text-muted" th:text="'(' + ${equipe.club} + ')'">(Club)</small>
+            </h1>
+            <span class="badge fs-6" th:classappend="${equipe.joueurs.size() >= 6} ? 'text-bg-success' : 'text-bg-warning'"
+                  th:text="${equipe.joueurs.size()} + ' joueur(s) – 6 minimum pour s’inscrire'">6 joueur(s)</span>
+        </div>
+
+        <form th:if="${capitaine}" method="post" th:action="@{/joueur/equipe/logo}" class="mb-3">
+            <label for="logo-equipe" class="form-label">Logo de l’équipe (chemin ou adresse unique, facultatif)</label>
+            <div class="input-group"><input id="logo-equipe" name="logo" maxlength="255" th:value="${equipe.logo}" class="form-control">
+                <button class="btn btn-outline-primary">Modifier le logo</button></div>
+        </form>
+        <table class="table table-sm bg-white align-middle">
+            <thead><tr><th>N°</th><th>Nom</th><th>Prénom</th><th>Poste</th><th>Rôle</th><th th:if="${capitaine}">Actions</th></tr></thead>
+            <tbody>
+            <tr th:each="j : ${equipe.joueurs}">
+                <td th:text="${j.numeroMaillot}">1</td>
+                <td th:text="${j.nom}">Nom</td>
+                <td th:text="${j.prenom}">Prénom</td>
+                <td th:text="${j.poste}">Poste</td>
+                <td><span class="badge text-bg-primary" th:if="${j.capitaine}">Capitaine</span></td>
+                <td th:if="${capitaine}">
+                    <div class="d-flex gap-1">
+                        <a class="btn btn-sm btn-outline-primary"
+                           th:href="@{/joueur/equipe/joueurs/{id}/modifier(id=${j.id})}">Modifier</a>
+                        <form th:if="${!j.capitaine}" th:action="@{/joueur/equipe/joueurs/{id}/capitaine(id=${j.id})}" method="post"
+                              onsubmit="return confirm('Nommer ce joueur capitaine ? Vous perdrez les droits de capitaine.');">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Nommer capitaine</button>
+                        </form>
+                        <form th:if="${!j.capitaine}" th:action="@{/joueur/equipe/joueurs/{id}/retirer(id=${j.id})}" method="post"
+                              onsubmit="return confirm('Retirer ce joueur de l’équipe ?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Retirer</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <p class="text-muted" th:if="${!capitaine}">Seul le capitaine peut modifier l'équipe et l'inscrire à un tournoi.</p>
+
+        <!-- Ajout d'un joueur : réservé au capitaine -->
+        <form th:if="${capitaine}" th:action="@{/joueur/equipe/joueurs}" th:object="${joueurForm}" method="post"
+              class="card card-body mt-4">
+            <h2 class="h6">Ajouter un joueur</h2>
+            <p class="form-text mt-0">Un compte est créé pour le joueur avec un mot de passe temporaire, à lui transmettre.</p>
+            <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}">
+                <div th:each="e : ${#fields.globalErrors()}" th:text="${e}"></div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="jNom" class="form-label">Nom</label>
+                    <input type="text" id="jNom" th:field="*{nom}" class="form-control">
+                    <div class="text-danger" th:if="${#fields.hasErrors('nom')}" th:errors="*{nom}"></div>
+                </div>
+                <div class="col-md-4">
+                    <label for="jPrenom" class="form-label">Prénom</label>
+                    <input type="text" id="jPrenom" th:field="*{prenom}" class="form-control">
+                    <div class="text-danger" th:if="${#fields.hasErrors('prenom')}" th:errors="*{prenom}"></div>
+                </div>
+                <div class="col-md-4">
+                    <label for="jEmail" class="form-label">Adresse e-mail</label>
+                    <input type="email" id="jEmail" th:field="*{email}" class="form-control">
+                    <div class="text-danger" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="jPoste" class="form-label">Poste</label>
+                    <input type="text" id="jPoste" th:field="*{poste}" class="form-control">
+                    <div class="text-danger" th:if="${#fields.hasErrors('poste')}" th:errors="*{poste}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="jMaillot" class="form-label">Numéro de maillot (1 à 99)</label>
+                    <input type="number" id="jMaillot" th:field="*{numeroMaillot}" class="form-control" min="1" max="99">
+                    <div class="text-danger" th:if="${#fields.hasErrors('numeroMaillot')}" th:errors="*{numeroMaillot}"></div>
+                </div>
+            </div>
+            <div class="mt-3"><button type="submit" class="btn btn-primary">Ajouter le joueur</button></div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

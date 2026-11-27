@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Tournois')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+    <h1 class="h4 mb-3">Tournois ouverts aux inscriptions</h1>
+
+    <p class="text-muted" th:if="${!aEquipe}">Créez d'abord votre équipe (menu « Mon équipe ») pour pouvoir l'inscrire.</p>
+    <p class="text-muted" th:if="${aEquipe and !capitaine}">Seul le capitaine peut inscrire l'équipe à un tournoi.</p>
+
+    <table class="table table-sm bg-white align-middle">
+        <thead><tr><th>Nom</th><th>Sport</th><th>Début</th><th>Fin</th><th>Mon équipe</th></tr></thead>
+        <tbody>
+        <tr th:each="t : ${tournois}" th:with="demande=${demandes.get(t.id)}">
+            <td th:text="${t.nom}">Coupe</td>
+            <td th:text="${t.sport}">Football à 5</td>
+            <td th:text="${#temporals.format(t.dateDebut, 'dd/MM/yyyy')}">10/01/2027</td>
+            <td th:text="${#temporals.format(t.dateFin, 'dd/MM/yyyy')}">20/01/2027</td>
+            <td>
+                <div th:if="${demande != null}">
+                    <span th:text="#{${'statut.inscription.' + demande.statut}}">En attente</span>
+                    <div class="small text-muted" th:if="${demande.motifRefus != null}" th:text="'Motif : ' + ${demande.motifRefus}"></div>
+                    <div class="small text-muted" th:if="${demande.motifRetrait != null}" th:text="${demande.motifRetrait}"></div>
+                </div>
+                <form th:if="${capitaine and (demande == null or demande.statut.name() == 'REFUSEE')}"
+                      th:action="@{/joueur/tournois/{id}/inscrire(id=${t.id})}" method="post">
+                    <button type="submit" class="btn btn-sm btn-primary"
+                            th:text="${demande == null} ? 'Demander l’inscription' : 'Redemander l’inscription'">Demander l'inscription</button>
+                </form>
+            </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(tournois)}"><td colspan="5" class="text-muted">Aucun tournoi n'est ouvert aux inscriptions.</td></tr>
+        </tbody>
+    </table>
+    <section th:unless="${#lists.isEmpty(autresInscriptions)}" class="mt-4">
+        <h2 class="h5">Mes inscriptions aux tournois dont les inscriptions sont closes</h2>
+        <table class="table table-sm bg-white"><thead><tr><th>Tournoi</th><th>État de mon équipe</th><th>Motif</th></tr></thead>
+            <tbody><tr th:each="i : ${autresInscriptions}">
+                <td><a th:href="@{/consultation/tournois/{id}(id=${i.tournoiId})}" th:text="${i.tournoi}"></a></td>
+                <td th:text="#{${'statut.inscription.' + i.statut}}"></td>
+                <td th:text="${i.motifRetrait != null ? i.motifRetrait : i.motifRefus}"></td>
+            </tr></tbody>
+        </table>
+    </section>
+</div>
+</body>
+</html>

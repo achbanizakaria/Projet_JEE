@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Tableau de matchs : calendrier et phase éliminatoire -->
+<table class="table table-sm bg-white align-middle" th:fragment="tableMatchs(liste)">
+    <thead><tr><th>N°</th><th>Date</th><th>Phase</th><th class="text-end">Équipe 1</th><th class="text-center">Score</th><th>Équipe 2</th><th>État</th><th></th></tr></thead>
+    <tbody>
+    <tr th:each="m : ${liste}">
+        <td th:text="${m.numero}">1</td>
+        <td th:text="${#temporals.format(m.dateHeure, 'dd/MM/yyyy HH:mm')}">10/01/2027 12:30</td>
+        <td>
+            <span th:if="${m.groupe != null}" th:text="'Groupe ' + ${m.groupe}">Groupe A</span>
+            <span th:if="${m.groupe == null}" th:text="#{${'phase.match.' + m.phase}}">Finale</span>
+        </td>
+        <td class="text-end" th:text="${m.equipe1}">Équipe 1</td>
+        <td class="text-center">
+            <span th:if="${m.score1 != null}" th:text="${m.score1} + ' – ' + ${m.score2}">2 – 1</span>
+            <span th:if="${m.score1 == null}" class="text-muted">vs</span>
+            <div class="small text-muted" th:if="${m.tirs1 != null}" th:text="'tirs au but : ' + ${m.tirs1} + ' – ' + ${m.tirs2}"></div>
+        </td>
+        <td th:text="${m.equipe2}">Équipe 2</td>
+        <td th:text="#{${'statut.match.' + m.statut}}">Planifié</td>
+        <td><a th:href="@{/consultation/matchs/{id}(id=${m.id})}">Feuille de match</a></td>
+    </tr>
+    </tbody>
+</table>
+
+<!-- Feuille de match d'une équipe : composition, buts, cartons, changement -->
+<table class="table table-sm bg-white align-middle" th:fragment="feuille(lignes)">
+    <thead><tr><th>N°</th><th>Joueur</th><th>Rôle</th><th>Buts</th><th>Jaunes</th><th>Rouge</th><th>Entrée</th><th>Sortie</th></tr></thead>
+    <tbody>
+    <tr th:each="l : ${lignes}">
+        <td th:text="${l.numero}">7</td>
+        <td th:text="${l.joueur}">Prénom Nom</td>
+        <td th:text="${l.titulaire} ? 'Titulaire' : 'Remplaçant'">Titulaire</td>
+        <td th:text="${l.buts}">0</td>
+        <td th:text="${l.cartonsJaunes}">0</td>
+        <td th:text="${l.cartonRouge} ? 'Oui' : '–'">–</td>
+        <td th:text="${l.minuteEntree != null} ? ${l.minuteEntree} + '’' : ''"></td>
+        <td th:text="${l.minuteSortie != null} ? ${l.minuteSortie} + '’' : ''"></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(lignes)}"><td colspan="8" class="text-muted">Composition non renseignée.</td></tr>
+    </tbody>
+</table>
+
+<details th:fragment="forfait(equipeId, nom)" class="mb-3">
+    <summary th:text="|Déclarer forfait pour ${nom}|"></summary>
+    <form method="post" class="mt-2" onsubmit="return confirm('Enregistrer le forfait de cette équipe ?');"
+          th:action="${actions.responsable} ? @{/organisateur/matchs/{id}/forfait/{equipe}(id=${detail.match.id},equipe=${equipeId})} : @{/joueur/matchs/{id}/forfait(id=${detail.match.id})}">
+        <label class="form-label" th:for="|motif-${equipeId}|">Motif du forfait</label>
+        <input class="form-control mb-2" name="motif" th:id="|motif-${equipeId}|" maxlength="255" required>
+        <button class="btn btn-sm btn-outline-danger">Confirmer le forfait</button>
+    </form>
+</details>
+<fieldset th:fragment="saisie(champ, equipe, lignes, effectif, composition)" class="card card-body mb-3">
+    <legend class="h5" th:text="${equipe}"></legend>
+    <p class="small text-muted" th:text="${#lists.isEmpty(composition)} ? 'Choisissez cinq titulaires et, si besoin, un remplaçant.' : 'Les participants de la composition enregistrée sont repris dans cette feuille.'"></p>
+    <div class="table-responsive"><table class="table align-middle">
+        <thead><tr><th>Rôle</th><th>Joueur</th><th>Buts</th><th>Jaunes</th><th>Rouge</th><th>Minute du changement</th></tr></thead>
+        <tbody>
+        <tr th:each="ligne,i : ${lignes}">
+            <th scope="row"><span th:text="${ligne.estTitulaire} ? 'Titulaire' : 'Remplaçant'"></span>
+                <input type="hidden" th:field="*{__${champ}__[__${i.index}__].estTitulaire}"></th>
+            <td><select class="form-select" aria-label="Joueur" th:required="${ligne.estTitulaire}" th:field="*{__${champ}__[__${i.index}__].joueurId}">
+                <option th:if="${#lists.isEmpty(composition)}" value="" th:text="${ligne.estTitulaire} ? 'Choisir un joueur' : 'Aucun remplaçant'"></option>
+                <option th:each="j : ${effectif}" th:if="${#lists.isEmpty(composition) or (i.index < composition.size() and composition[i.index].joueurId == j.id)}"
+                        th:value="${j.id}" th:text="|${j.prenom} ${j.nom}|"></option>
+            </select></td>
+            <td><input class="form-control" aria-label="Buts" type="number" min="0" required th:field="*{__${champ}__[__${i.index}__].buts}"></td>
+            <td><input class="form-control" aria-label="Cartons jaunes" type="number" min="0" max="2" required th:field="*{__${champ}__[__${i.index}__].cartonsJaunes}"></td>
+            <td><input class="form-check-input" aria-label="Carton rouge" type="checkbox" th:field="*{__${champ}__[__${i.index}__].cartonRouge}"></td>
+            <td><input th:if="${ligne.estTitulaire}" class="form-control" aria-label="Minute de sortie" placeholder="Sortie" type="number" min="0"
+                       th:max="${detail.duree}" th:field="*{__${champ}__[__${i.index}__].minuteSortie}">
+                <input th:unless="${ligne.estTitulaire}" class="form-control" aria-label="Minute d’entrée" placeholder="Entrée" type="number" min="0"
+                       th:max="${detail.duree}" th:field="*{__${champ}__[__${i.index}__].minuteEntree}"></td>
+        </tr>
+        </tbody>
+    </table></div>
+</fieldset>
+</body>
+</html>

@@ -5,11 +5,15 @@ import com.example.demo.dao.repositories.*;
 import com.example.demo.dto.CompositionForm;
 import com.example.demo.dto.JoueurStatForm;
 import com.example.demo.dto.ResultatForm;
+import com.example.demo.dto.Vues.ActionsMatch;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
@@ -22,23 +26,99 @@ public class MatchService {
     private final InscriptionRepository inscriptionRepository;
     private final ClassementService classementService;
     private final ControleAcces acces;
+    private final Clock horloge;
+    private final TournoiRepository tournoiRepository;
+
+    @Transactional(readOnly = true)
+    public ActionsMatch actions(Long acteurId, boolean organisateur, Long matchId) {
+        Match m = trouver(matchId);
+        boolean responsable = organisateur && m.getTournoi().getOrganisateur().getId().equals(acteurId);
+        int cote = 0;
+        if (!organisateur) {
+            Joueur j = acces.joueur(acteurId);
+            if (j.isEstCapitaine() && j.getEquipe() != null) {
+                cote = OutilsMatch.deEquipe(m, j.getEquipe().getId()).map(EquipeMatch::getOrdre).orElse(0);
+            }
+        }
+        EquipeMatch a = m.getEquipeMatchs().get(0);
+        EquipeMatch b = m.getEquipeMatchs().get(1);
+        boolean connus = a.getEquipe() != null && b.getEquipe() != null;
+        return new ActionsMatch(responsable, cote, cote != 0 && compositionOuverte(m),
+                responsable && preparableParOrganisateur(a), responsable && preparableParOrganisateur(b),
+                responsable ? blocageResultat(m) : null,
+                connus && (responsable || cote == 1) && forfaitPossible(m, a),
+                connus && (responsable || cote == 2) && forfaitPossible(m, b));
+    }
+
+    @Transactional(readOnly = true)
+    public CompositionForm formulaireComposition(Long capitaineId, Long matchId) {
+        return composition(coteDuCapitaine(trouver(matchId), capitaineId));
+    }
+
+    @Transactional(readOnly = true)
+    public CompositionForm compositionOrganisateur(Long responsableId, Long matchId, Long equipeId) {
+        return composition(coteDeOrganisateur(trouver(matchId), responsableId, equipeId));
+    }
+
+    private CompositionForm composition(EquipeMatch cote) {
+        CompositionForm form = new CompositionForm();
+        for (JoueurMatch ligne : cote.getJoueurs()) {
+            if (ligne.isEstTitulaire()) form.getTitulaires().add(ligne.getJoueur().getId());
+            else form.setRemplacant(ligne.getJoueur().getId());
+        }
+        return form;
+    }
+
+    private EquipeMatch coteDuCapitaine(Match m, Long capitaineId) {
+        Joueur capitaine = acces.capitaine(capitaineId);
+        EquipeMatch cote = OutilsMatch.deEquipe(m, capitaine.getEquipe().getId())
+                .orElseThrow(() -> new AccesRefuseException("Votre équipe ne joue pas ce match"));
+        if (!compositionOuverte(m)) {
+            throw new RegleMetierException("Composition impossible : le match n'est plus planifié");
+        }
+        return cote;
+    }
+
+    private boolean compositionOuverte(Match match) {
+        return match.getStatut() == StatutMatch.PLANIFIE && EN_COURS.contains(match.getTournoi().getStatut()) && !poulesVerrouillees(match);
+    }
+
+    private boolean preparableParOrganisateur(EquipeMatch em) {
+        return em.getEquipe() != null && compositionOuverte(em.getMatch()) && (em.getJoueurs().isEmpty() || em.isCompositionOrganisateur());
+    }
+
+    private EquipeMatch coteDeOrganisateur(Match m, Long responsableId, Long equipeId) {
+        acces.tournoiDe(responsableId, m.getTournoi().getId());
+        EquipeMatch em = OutilsMatch.deEquipe(m, equipeId)
+                .orElseThrow(() -> new RegleMetierException("Cette équipe ne joue pas ce match"));
+        if (!compositionOuverte(m)) throw new RegleMetierException("La composition de ce match est fermée");
+        if (!preparableParOrganisateur(em)) throw new RegleMetierException("Le capitaine a déjà défini cette composition");
+        return em;
+    }
 
     // ================= UC07 : composition =================
 
     @Transactional
     public void definirComposition(Long capitaineId, Long matchId, CompositionForm f) {
-        Joueur capitaine = acces.capitaine(capitaineId);
-        Match m = trouver(matchId);
-        if (m.getStatut() != StatutMatch.PLANIFIE) {
-            throw new RegleMetierException("Composition impossible : le match n'est plus planifié");
-        }
-        Long equipeId = capitaine.getEquipe().getId();
-        EquipeMatch em = OutilsMatch.deEquipe(m, equipeId)
-                .orElseThrow(() -> new AccesRefuseException("Votre équipe ne joue pas ce match"));
+        Match m = pourEcriture(matchId);
+        EquipeMatch em = coteDuCapitaine(m, capitaineId);
+        enregistrerComposition(em, f);
+        em.setCompositionOrganisateur(false);
+    }
+
+    @Transactional
+    public void preparerComposition(Long responsableId, Long matchId, Long equipeId, CompositionForm f) {
+        EquipeMatch em = coteDeOrganisateur(pourEcriture(matchId), responsableId, equipeId);
+        enregistrerComposition(em, f);
+        em.setCompositionOrganisateur(true);
+    }
+
+    private void enregistrerComposition(EquipeMatch em, CompositionForm f) {
+        Long equipeId = em.getEquipe().getId();
 
         List<Long> titulaires = f.getTitulaires() == null ? List.of() : f.getTitulaires();
         Set<Long> distincts = new HashSet<>(titulaires);
-        if (titulaires.size() != Regles.NB_TITULAIRES || distincts.size() != Regles.NB_TITULAIRES) {
+        if (distincts.contains(null) || titulaires.size() != Regles.NB_TITULAIRES || distincts.size() != Regles.NB_TITULAIRES) {
             throw new RegleMetierException("Il faut exactement " + Regles.NB_TITULAIRES + " titulaires différents");
         }
         Long remplacant = f.getRemplacant();
@@ -69,6 +149,7 @@ public class MatchService {
     public ResultatForm formulaireResultat(Long organisateurId, Long matchId) {
         Match m = trouver(matchId);
         acces.tournoiDe(organisateurId, m.getTournoi().getId());
+        verifierSaisiePossible(m);
         EquipeMatch e1 = m.getEquipeMatchs().get(0);
         EquipeMatch e2 = m.getEquipeMatchs().get(1);
         ResultatForm f = new ResultatForm();
@@ -83,23 +164,14 @@ public class MatchService {
 
     @Transactional
     public void enregistrerResultat(Long organisateurId, Long matchId, ResultatForm f) {
-        Match m = trouver(matchId);
+        Match m = pourEcriture(matchId);
         Tournoi t = acces.tournoiDe(organisateurId, m.getTournoi().getId());
-        verifierTournoiEnCours(t);
-        if (m.getStatut() == StatutMatch.FORFAIT) {
-            throw new RegleMetierException("Ce match a été attribué par forfait");
-        }
+        verifierSaisiePossible(m);
         boolean eliminatoire = m.getPhase() != PhaseMatch.GROUPES;
-        if (!eliminatoire && t.getStatut() == StatutTournoi.PHASE_ELIMINATOIRE) {
-            throw new RegleMetierException("La phase de groupes est verrouillée : la phase éliminatoire est générée");
-        }
         EquipeMatch e1 = m.getEquipeMatchs().get(0);
         EquipeMatch e2 = m.getEquipeMatchs().get(1);
-        if (e1.getEquipe() == null || e2.getEquipe() == null) {
-            throw new RegleMetierException("Les deux équipes ne sont pas encore connues");
-        }
-        if (m.getStatut() == StatutMatch.TERMINE && eliminatoire) {
-            verifierSuiteNonJouee(m);        // correction d'un match éliminatoire
+        if (f.getScoreEquipe1() == null || f.getScoreEquipe2() == null || f.getScoreEquipe1() < 0 || f.getScoreEquipe2() < 0) {
+            throw new RegleMetierException("Renseignez deux scores positifs ou nuls");
         }
 
         int s1 = f.getScoreEquipe1();
@@ -129,8 +201,8 @@ public class MatchService {
 
     @Transactional
     public void declarerForfait(Long capitaineId, Long matchId, String motif) {
+        Match m = pourEcriture(matchId);
         Joueur capitaine = acces.capitaine(capitaineId);
-        Match m = trouver(matchId);
         EquipeMatch fautif = OutilsMatch.deEquipe(m, capitaine.getEquipe().getId())
                 .orElseThrow(() -> new AccesRefuseException("Votre équipe ne joue pas ce match"));
         forfaitDeMatch(m, fautif, motif);
@@ -138,7 +210,7 @@ public class MatchService {
 
     @Transactional
     public void declarerForfaitParOrganisateur(Long organisateurId, Long matchId, Long equipeId, String motif) {
-        Match m = trouver(matchId);
+        Match m = pourEcriture(matchId);
         acces.tournoiDe(organisateurId, m.getTournoi().getId());
         EquipeMatch fautif = OutilsMatch.deEquipe(m, equipeId)
                 .orElseThrow(() -> new RegleMetierException("Cette équipe ne joue pas ce match"));
@@ -189,6 +261,7 @@ public class MatchService {
     }
 
     private boolean forfaitPossible(Match m, EquipeMatch fautif) {
+        if (!EN_COURS.contains(m.getTournoi().getStatut()) || poulesVerrouillees(m)) return false;
         if (m.getStatut() == StatutMatch.PLANIFIE) return true;
         // second forfait sur un match de poule déjà attribué par forfait
         return m.getStatut() == StatutMatch.FORFAIT && m.getPhase() == PhaseMatch.GROUPES
@@ -196,8 +269,8 @@ public class MatchService {
     }
 
     private void appliquerForfait(Match m, EquipeMatch fautif, String motif) {
-        if (motif == null || motif.isBlank()) {
-            throw new RegleMetierException("Le motif du forfait est obligatoire");
+        if (motif == null || motif.isBlank() || motif.strip().length() > 255) {
+            throw new RegleMetierException("Indiquez un motif de forfait de 1 à 255 caractères");
         }
         EquipeMatch autre = OutilsMatch.adversaire(m, fautif);
         if (autre.getEquipe() == null) {
@@ -245,21 +318,50 @@ public class MatchService {
         cible.setEquipe(equipe);
     }
 
-    private void verifierSuiteNonJouee(Match m) {
-        for (Match suivant : Arrays.asList(m.getMatchSuivantVictoire(), m.getMatchSuivantDefaite())) {
-            if (suivant != null && suivant.getStatut() != StatutMatch.PLANIFIE) {
-                throw new RegleMetierException("Correction impossible : le match suivant a déjà été joué");
+    private boolean poulesVerrouillees(Match m) {
+        return m.getPhase() == PhaseMatch.GROUPES && m.getTournoi().getStatut() == StatutTournoi.PHASE_ELIMINATOIRE;
+    }
+
+    private void verifierSaisiePossible(Match m) {
+        String raison = blocageResultat(m);
+        if (raison != null) throw new RegleMetierException(raison);
+    }
+
+    private String blocageResultat(Match m) {
+        if (!EN_COURS.contains(m.getTournoi().getStatut())) return "Le tournoi n’est plus en cours de jeu.";
+        if (poulesVerrouillees(m)) return "Les résultats de poule sont verrouillés depuis la génération du tableau.";
+        if (m.getStatut() == StatutMatch.FORFAIT) return "Ce match a été attribué par forfait.";
+        if (m.getEquipeMatchs().stream().anyMatch(e -> e.getEquipe() == null)) return "Les deux équipes ne sont pas encore connues.";
+        if (m.getStatut() == StatutMatch.TERMINE) {
+            for (Match suivant : Arrays.asList(m.getMatchSuivantVictoire(), m.getMatchSuivantDefaite())) {
+                if (suivant != null && suivant.getStatut() != StatutMatch.PLANIFIE) return "Le match suivant a déjà été joué.";
             }
+            return null;
         }
+        if (m.getDateHeure() == null) return "Le match n’a pas encore de créneau.";
+        var precedent = matchRepository.findFirstByTournoiIdAndStatutInAndDateHeureLessThanOrderByDateHeureAscNumeroAsc(
+                m.getTournoi().getId(), List.of(StatutMatch.PLANIFIE, StatutMatch.EN_COURS), m.getDateHeure());
+        if (precedent.isPresent()) return "Terminez d’abord le match n° " + precedent.get().getNumero() + " de ce tournoi.";
+        LocalDateTime fin = m.getDateHeure().plusMinutes(m.getTournoi().getDureeMatchMinutes());
+        if (LocalDateTime.now(horloge).isBefore(fin)) {
+            return "Saisie du résultat à partir du " + fin.format(DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm")) + ".";
+        }
+        return null;
     }
 
     private void verifierFeuille(EquipeMatch em, int score, List<JoueurStatForm> lignes) {
         String equipe = em.getEquipe().getNom();
         List<JoueurStatForm> feuille = lignes == null ? List.of() : lignes;
         Set<Long> vus = new HashSet<>();
-        int titulaires = 0, sommeButs = 0, entrees = 0, sorties = 0;
+        int titulaires = 0, entrees = 0, sorties = 0;
+        long sommeButs = 0;
         Integer minuteEntree = null, minuteSortie = null;
         for (JoueurStatForm l : feuille) {
+            if (l == null || l.getJoueurId() == null) throw new RegleMetierException(equipe + " : choisissez chaque joueur de la feuille");
+            int duree = em.getMatch().getTournoi().getDureeMatchMinutes();
+            if (minuteInvalide(l.getMinuteEntree(), duree) || minuteInvalide(l.getMinuteSortie(), duree)) {
+                throw new RegleMetierException(equipe + " : les minutes doivent être comprises entre 0 et " + duree);
+            }
             if (!vus.add(l.getJoueurId())) {
                 throw new RegleMetierException(equipe + " : joueur en double dans la feuille de match");
             }
@@ -315,7 +417,7 @@ public class MatchService {
                 && feuille.stream().allMatch(l -> Objects.equals(composition.get(l.getJoueurId()), l.isEstTitulaire()));
         if (!identique) {
             throw new RegleMetierException(equipe
-                    + " : la feuille de match doit reprendre la composition définie par le capitaine");
+                    + " : la feuille de match doit reprendre la composition enregistrée");
         }
     }
 
@@ -353,6 +455,7 @@ public class MatchService {
             l.setMinuteSortie(jm.getMinuteSortie());
             lignes.add(l);
         }
+        lignes.sort(Comparator.comparing(JoueurStatForm::isEstTitulaire).reversed().thenComparing(JoueurStatForm::getJoueurId));
         return lignes;
     }
 
@@ -368,6 +471,15 @@ public class MatchService {
         if (!EN_COURS.contains(t.getStatut())) {
             throw new RegleMetierException("Le tournoi n'est pas en cours de jeu");
         }
+    }
+
+    private boolean minuteInvalide(Integer minute, int duree) {
+        return minute != null && (minute < 0 || minute > duree);
+    }
+
+    private Match pourEcriture(Long matchId) {
+        tournoiRepository.findByMatchsId(matchId).orElseThrow(() -> new RegleMetierException("Match introuvable"));
+        return trouver(matchId);
     }
 
     private void passerEnPhaseGroupes(Tournoi t) {

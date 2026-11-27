@@ -18,7 +18,7 @@ public class Tournoi {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 120)
+    @Column(nullable = false,unique=true, length = 120)
     private String nom;
 
     @Column(nullable = false, length = 50)
@@ -42,13 +42,13 @@ public class Tournoi {
 
     // Paramètres de planification
     @Column(name = "duree_match_minutes", nullable = false)
-    private int dureeMatchMinutes = 60;
+    private int dureeMatchMinutes = 30;
 
     @Column(name = "heure_ouverture", nullable = false)
-    private LocalTime heureOuverture = LocalTime.of(14, 0);
+    private LocalTime heureOuverture = LocalTime.of(12, 30);
 
     @Column(name = "heure_fermeture", nullable = false)
-    private LocalTime heureFermeture = LocalTime.of(20, 0);
+    private LocalTime heureFermeture = LocalTime.of(14, 30);
 
     @Column(name = "repos_minutes", nullable = false)
     private int reposMinutes = 0;

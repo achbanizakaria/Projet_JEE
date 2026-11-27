@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Match')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+
+    <div class="card card-body text-center mb-4">
+        <div class="text-muted">
+            Match n° <span th:text="${detail.match.numero}">1</span> –
+            <span th:text="${#temporals.format(detail.match.dateHeure, 'dd/MM/yyyy HH:mm')}">10/01/2027 12:30</span> –
+            <span th:if="${detail.match.groupe != null}" th:text="'Groupe ' + ${detail.match.groupe}">Groupe A</span>
+            <span th:if="${detail.match.groupe == null}" th:text="#{${'phase.match.' + detail.match.phase}}">Finale</span>
+        </div>
+        <div class="fs-4 my-2">
+            <strong th:text="${detail.match.equipe1}">Équipe 1</strong>
+            <span class="mx-3" th:if="${detail.match.score1 != null}" th:text="${detail.match.score1} + ' – ' + ${detail.match.score2}">2 – 1</span>
+            <span class="mx-3 text-muted" th:if="${detail.match.score1 == null}">vs</span>
+            <strong th:text="${detail.match.equipe2}">Équipe 2</strong>
+        </div>
+        <div class="small text-muted" th:if="${detail.match.tirs1 != null}"
+             th:text="'Tirs au but : ' + ${detail.match.tirs1} + ' – ' + ${detail.match.tirs2}"></div>
+        <div><span class="badge text-bg-secondary" th:text="#{${'statut.match.' + detail.match.statut}}">Planifié</span></div>
+    </div>
+
+    <div class="mb-4" th:if="${actions.responsable or actions.coteCapitaine != 0}">
+        <a th:if="${actions.compositionPossible}" class="btn btn-primary"
+           th:href="@{/joueur/matchs/{id}/composition(id=${detail.match.id})}">Renseigner ma composition</a>
+        <a th:if="${actions.responsable and actions.blocageResultat == null}" class="btn btn-primary"
+           th:href="@{/organisateur/matchs/{id}/resultat(id=${detail.match.id})}"
+           th:text="${detail.match.statut.name() == 'TERMINE'} ? 'Corriger le résultat' : 'Saisir le résultat et les participants'"></a>
+        <p class="text-muted" th:if="${actions.responsable and actions.blocageResultat != null}" th:text="${actions.blocageResultat}"></p>
+    </div>
+    <div class="row">
+        <div class="col-lg-6">
+            <h2 class="h6" th:text="${detail.match.equipe1}">Équipe 1</h2>
+            <a th:if="${actions.preparerEquipe1}" class="btn btn-sm btn-outline-primary mb-2"
+               th:href="@{/organisateur/matchs/{id}/equipes/{eid}/composition(id=${detail.match.id},eid=${detail.equipe1Id})}">Renseigner les participants</a>
+            <p th:if="${detail.motif1 != null}" th:text="|Forfait · ${detail.motif1}|"></p>
+            <div th:replace="~{fragments/matchs :: feuille(${detail.equipe1})}"></div>
+            <th:block th:if="${actions.forfait1Possible}"><div th:replace="~{fragments/matchs :: forfait(${detail.equipe1Id}, ${detail.match.equipe1})}"></div></th:block>
+        </div>
+        <div class="col-lg-6">
+            <h2 class="h6" th:text="${detail.match.equipe2}">Équipe 2</h2>
+            <a th:if="${actions.preparerEquipe2}" class="btn btn-sm btn-outline-primary mb-2"
+               th:href="@{/organisateur/matchs/{id}/equipes/{eid}/composition(id=${detail.match.id},eid=${detail.equipe2Id})}">Renseigner les participants</a>
+            <p th:if="${detail.motif2 != null}" th:text="|Forfait · ${detail.motif2}|"></p>
+            <div th:replace="~{fragments/matchs :: feuille(${detail.equipe2})}"></div>
+            <th:block th:if="${actions.forfait2Possible}"><div th:replace="~{fragments/matchs :: forfait(${detail.equipe2Id}, ${detail.match.equipe2})}"></div></th:block>
+        </div>
+    </div>
+    <a class="btn btn-link" th:href="@{/consultation/tournois/{id}(id=${detail.tournoiId})}">← Retour au tournoi</a>
+</div>
+
+</body>
+</html>

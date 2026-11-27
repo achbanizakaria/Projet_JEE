@@ -28,9 +28,9 @@ public class InscriptionService {
      */
     @Transactional
     public Long demander(Long capitaineId, Long tournoiId) {
-        Joueur capitaine = acces.capitaine(capitaineId);
-        Tournoi t = tournoiRepository.findById(tournoiId)
+        Tournoi t = tournoiRepository.findTournoiById(tournoiId)
                 .orElseThrow(() -> new RegleMetierException("Tournoi introuvable"));
+        Joueur capitaine = acces.capitaine(capitaineId);
         if (t.getStatut() != StatutTournoi.INSCRIPTION_OUVERTE) {
             throw new RegleMetierException("Les inscriptions ne sont pas ouvertes pour ce tournoi");
         }
@@ -57,7 +57,13 @@ public class InscriptionService {
 
     @Transactional
     public void valider(Long organisateurId, Long inscriptionId) {
-        Inscription i = enAttente(organisateurId, inscriptionId);
+        valider(organisateurId, tournoiDeInscription(inscriptionId), inscriptionId);
+    }
+
+    @Transactional
+    public void valider(Long organisateurId, Long tournoiId, Long inscriptionId) {
+        Inscription i = avantTirage(organisateurId, tournoiId, inscriptionId);
+        if (i.getStatut() != StatutInscription.REFUSEE) verifierEnAttente(i);
         Long equipeId = i.getEquipe().getId();
         if (joueurRepository.countByEquipeId(equipeId) < Regles.EFFECTIF_MINIMUM) {
             throw new RegleMetierException("Validation impossible : l'équipe compte moins de "
@@ -67,16 +73,36 @@ public class InscriptionService {
             throw new RegleMetierException("Validation impossible : l'équipe doit avoir exactement un capitaine");
         }
         i.setStatut(StatutInscription.VALIDEE);
+        i.setMotifRefus(null);
     }
 
     @Transactional
     public void refuser(Long organisateurId, Long inscriptionId, String motif) {
+        refuser(organisateurId, tournoiDeInscription(inscriptionId), inscriptionId, motif);
+    }
+
+    @Transactional
+    public void refuser(Long organisateurId, Long tournoiId, Long inscriptionId, String motif) {
         if (motif == null || motif.isBlank()) {
             throw new RegleMetierException("Le motif du refus est obligatoire");
         }
-        Inscription i = enAttente(organisateurId, inscriptionId);
+        Inscription i = avantTirage(organisateurId, tournoiId, inscriptionId);
+        verifierEnAttente(i);
         i.setStatut(StatutInscription.REFUSEE);
         i.setMotifRefus(motif.trim());
+    }
+
+    @Transactional
+    public void retirer(Long organisateurId, Long tournoiId, Long inscriptionId, String motif) {
+        Inscription i = avantTirage(organisateurId, tournoiId, inscriptionId);
+        if (i.getStatut() != StatutInscription.VALIDEE) {
+            throw new RegleMetierException("Seule une équipe validée peut être retirée");
+        }
+        if (motif == null || motif.isBlank() || motif.strip().length() > 255) {
+            throw new RegleMetierException("Indiquez un motif de retrait de 1 à 255 caractères");
+        }
+        i.setStatut(StatutInscription.FORFAIT);
+        i.setMotifRetrait(motif.strip());
     }
 
     /** Demandes d'un tournoi, côté organisateur. */
@@ -88,7 +114,7 @@ public class InscriptionService {
             return new InscriptionVue(i.getId(), i.getEquipe().getNom(), i.getEquipe().getClub().getNom(),
                     joueurRepository.countByEquipeId(equipeId),
                     joueurRepository.countByEquipeIdAndEstCapitaineTrue(equipeId),
-                    i.getDateInscription(), i.getStatut(), i.getMotifRefus());
+                    i.getDateInscription(), i.getStatut(), i.getMotifRefus(), i.getMotifRetrait());
         }).toList();
     }
 
@@ -98,20 +124,32 @@ public class InscriptionService {
         Joueur capitaine = acces.capitaine(capitaineId);
         return inscriptionRepository.findByEquipeId(capitaine.getEquipe().getId()).stream()
                 .map(i -> new MonInscription(i.getId(), i.getTournoi().getId(), i.getTournoi().getNom(),
-                        i.getStatut(), i.getMotifRefus()))
+                        i.getStatut(), i.getMotifRefus(), i.getMotifRetrait()))
                 .toList();
     }
 
-    private Inscription enAttente(Long organisateurId, Long inscriptionId) {
+    private Inscription avantTirage(Long organisateurId, Long tournoiId, Long inscriptionId) {
+        Tournoi t = acces.modifierTournoi(organisateurId, tournoiId);
+        if (t.getStatut() != StatutTournoi.INSCRIPTION_OUVERTE && t.getStatut() != StatutTournoi.INSCRIPTION_CLOSE) {
+            throw new RegleMetierException("Le tirage a eu lieu. Déclarez le forfait sur la feuille du match concerné.");
+        }
         Inscription i = inscriptionRepository.findById(inscriptionId)
                 .orElseThrow(() -> new RegleMetierException("Inscription introuvable"));
-        Tournoi t = acces.tournoiDe(organisateurId, i.getTournoi().getId());
-        if (t.getStatut() != StatutTournoi.INSCRIPTION_OUVERTE) {
+        if (!i.getTournoi().getId().equals(tournoiId)) throw new AccesRefuseException("Cette inscription appartient à un autre tournoi");
+        return i;
+    }
+
+    private Long tournoiDeInscription(Long inscriptionId) {
+        return tournoiRepository.findByInscriptionsId(inscriptionId)
+                .orElseThrow(() -> new RegleMetierException("Inscription introuvable")).getId();
+    }
+
+    private void verifierEnAttente(Inscription i) {
+        if (i.getTournoi().getStatut() != StatutTournoi.INSCRIPTION_OUVERTE) {
             throw new RegleMetierException("Le tournoi n'est plus ouvert aux inscriptions");
         }
         if (i.getStatut() != StatutInscription.EN_ATTENTE) {
             throw new RegleMetierException("Cette inscription a déjà été traitée");
         }
-        return i;
     }
 }

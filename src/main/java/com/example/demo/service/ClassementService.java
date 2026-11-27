@@ -17,12 +17,13 @@ public class ClassementService {
                     .thenComparing(Comparator.comparingInt(ClassementGroupe::getDifference).reversed())
                     .thenComparing(Comparator.comparingInt(ClassementGroupe::getButsPour).reversed());
 
-    private record Rencontre(long equipeA, long equipeB, int butsA, int butsB) {}
+    private record Rencontre(long equipeA, long equipeB, int butsA, int butsB, int issueA) {}
     private record Calcul(List<ClassementGroupe> ordre, List<List<ClassementGroupe>> egalites) {}
 
     private final ClassementGroupeRepository classementRepository;
     private final GroupeRepository groupeRepository;
     private final MatchRepository matchRepository;
+    private final TournoiRepository tournoiRepository;
     private final ControleAcces acces;
     private Random random = new Random();
 
@@ -35,7 +36,7 @@ public class ClassementService {
     }
 
     /** Vrai si une égalité parfaite empêche de désigner les qualifiés (positions q et q+1 confondues). */
-    @Transactional
+    @Transactional(readOnly = true)
     public boolean departageNecessaire(Long groupeId, int nbQualifies) {
         Calcul c = calculer(groupeId, false);
         for (List<ClassementGroupe> bloc : c.egalites()) {
@@ -53,11 +54,22 @@ public class ClassementService {
     /** Tirage au sort entre les équipes parfaitement à égalité (action de l'organisateur). */
     @Transactional
     public void departagerParTirage(Long organisateurId, Long groupeId) {
+        Tournoi t = tournoiRepository.findByGroupesId(groupeId).orElseThrow(() -> new RegleMetierException("Groupe introuvable"));
+        departagerParTirage(organisateurId, t.getId(), groupeId);
+    }
+
+    @Transactional
+    public void departagerParTirage(Long organisateurId, Long tournoiId, Long groupeId) {
+        Tournoi t = acces.modifierTournoi(organisateurId, tournoiId);
         Groupe groupe = groupeRepository.findById(groupeId)
                 .orElseThrow(() -> new RegleMetierException("Groupe introuvable"));
-        Tournoi t = acces.tournoiDe(organisateurId, groupe.getTournoi().getId());
+        if (!groupe.getTournoi().getId().equals(tournoiId)) throw new AccesRefuseException("Groupe d’un autre tournoi");
         if (t.getStatut() != StatutTournoi.PHASE_GROUPES) {
             throw new RegleMetierException("Le départage n'est possible que pendant la phase de groupes");
+        }
+        if (matchRepository.countByTournoiIdAndPhaseAndStatutNotIn(tournoiId, PhaseMatch.GROUPES,
+                List.of(StatutMatch.TERMINE, StatutMatch.FORFAIT)) > 0 || !departageNecessaire(groupeId, t.getNbQualifiesParGroupe())) {
+            throw new RegleMetierException("Le départage concerne la dernière place qualificative, une fois les poules terminées");
         }
         Calcul c = calculer(groupeId, false);
         if (c.egalites().isEmpty()) {
@@ -98,10 +110,12 @@ public class ClassementService {
             if (la == null || lb == null) {
                 throw new IllegalStateException("Équipe absente du classement du groupe");
             }
-            appliquer(la, a.getScore(), b.getScore(), penalites(a));
-            appliquer(lb, b.getScore(), a.getScore(), penalites(b));
+            int issueA = Integer.compare(a.getScore(), b.getScore());
+            if (m.getStatut() == StatutMatch.FORFAIT) issueA = a.isForfait() ? -1 : 1;
+            appliquer(la, a.getScore(), b.getScore(), issueA, penalites(a));
+            appliquer(lb, b.getScore(), a.getScore(), -issueA, penalites(b));
             rencontres.add(new Rencontre(a.getEquipe().getId(), b.getEquipe().getId(),
-                    a.getScore(), b.getScore()));
+                    a.getScore(), b.getScore(), issueA));
         }
         for (ClassementGroupe l : lignes) l.setDifference(l.getButsPour() - l.getButsContre());
 
@@ -121,14 +135,14 @@ public class ClassementService {
         return m.getStatut() == StatutMatch.FORFAIT && !(a.isForfait() && b.isForfait());
     }
 
-    private void appliquer(ClassementGroupe l, int pour, int contre, int fairPlay) {
+    private void appliquer(ClassementGroupe l, int pour, int contre, int issue, int fairPlay) {
         l.setJoues(l.getJoues() + 1);
         l.setButsPour(l.getButsPour() + pour);
         l.setButsContre(l.getButsContre() + contre);
-        if (pour > contre) {
+        if (issue > 0) {
             l.setGagnes(l.getGagnes() + 1);
             l.setPoints(l.getPoints() + Regles.POINTS_VICTOIRE);
-        } else if (pour == contre) {
+        } else if (issue == 0) {
             l.setNuls(l.getNuls() + 1);
             l.setPoints(l.getPoints() + Regles.POINTS_NUL);
         } else {
@@ -176,8 +190,8 @@ public class ClassementService {
             int[] a = mini.get(r.equipeA());
             int[] b = mini.get(r.equipeB());
             if (a == null || b == null) continue;
-            cumuler(a, r.butsA(), r.butsB());
-            cumuler(b, r.butsB(), r.butsA());
+            cumuler(a, r.butsA(), r.butsB(), r.issueA());
+            cumuler(b, r.butsB(), r.butsA(), -r.issueA());
         }
         Comparator<ClassementGroupe> parConfrontation = (x, y) -> {
             int[] mx = mini.get(x.getEquipe().getId());
@@ -196,8 +210,8 @@ public class ClassementService {
         return resultat;
     }
 
-    private static void cumuler(int[] t, int pour, int contre) {
-        t[0] += pour > contre ? Regles.POINTS_VICTOIRE : (pour == contre ? Regles.POINTS_NUL : 0);
+    private static void cumuler(int[] t, int pour, int contre, int issue) {
+        t[0] += issue > 0 ? Regles.POINTS_VICTOIRE : (issue == 0 ? Regles.POINTS_NUL : 0);
         t[1] += pour - contre;
         t[2] += pour;
     }

@@ -2,16 +2,28 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/base :: tete('Accueil')}"></head>
 <body class="bg-light">
-<div class="container mt-5" style="max-width: 640px;">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container" style="max-width: 720px;">
+    <div th:replace="~{fragments/base :: messages}"></div>
     <div class="card card-body">
         <h1 class="h4">Bienvenue, <span th:text="${nom}">Prénom Nom</span></h1>
-        <p class="mb-1">Vos rôles :</p>
-        <ul>
-            <li th:each="r : ${roles}" th:text="${r}">ROLE_JOUEUR</li>
-        </ul>
-        <form th:action="@{/deconnexion}" method="post">
-            <button type="submit" class="btn btn-outline-secondary">Se déconnecter</button>
-        </form>
+
+        <div th:if="${organisateur}">
+            <p class="text-muted">Vous êtes organisateur.</p>
+            <a class="btn btn-primary me-2" th:href="@{/organisateur/clubs}">Gérer les clubs</a>
+            <a class="btn btn-primary" th:href="@{/organisateur/tournois}">Mes tournois</a>
+        </div>
+
+        <div th:if="${!organisateur}">
+            <p th:if="${equipe == null}" class="text-muted">Vous n'appartenez à aucune équipe pour le moment.</p>
+            <p th:if="${equipe != null}">
+                Équipe : <strong th:text="${equipe.nom}">Les Lions</strong>
+                (<span th:text="${equipe.club}">Club</span>) –
+                <span th:text="${capitaine} ? 'vous en êtes le capitaine' : 'vous êtes joueur'">joueur</span>
+            </p>
+            <a class="btn btn-primary me-2" th:href="@{/joueur/equipe}">Mon équipe</a>
+            <a class="btn btn-primary" th:href="@{/joueur/tournois}">Tournois ouverts</a>
+        </div>
     </div>
 </div>
 </body>

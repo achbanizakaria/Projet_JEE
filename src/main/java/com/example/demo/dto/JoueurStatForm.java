@@ -1,12 +1,11 @@
 package com.example.demo.dto;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter @Setter
 public class JoueurStatForm {
-    @NotNull private Long joueurId;
+    private Long joueurId; // facultatif uniquement pour la ligne de remplaçant laissée entièrement vide
     private boolean estTitulaire = true;
     private int buts;
     private int cartonsJaunes;

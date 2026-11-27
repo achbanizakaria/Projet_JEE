@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Mes tournois')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<div class="container">
+    <div th:replace="~{fragments/base :: messages}"></div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 m-0">Mes tournois</h1>
+        <a class="btn btn-primary" th:href="@{/organisateur/tournois/nouveau}">Nouveau tournoi</a>
+    </div>
+    <table class="table table-sm bg-white align-middle">
+        <thead><tr><th>Nom</th><th>Sport</th><th>Début</th><th>Fin</th><th>État</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="t : ${tournois}">
+            <td th:text="${t.nom}">Coupe</td>
+            <td th:text="${t.sport}">Football à 5</td>
+            <td th:text="${#temporals.format(t.dateDebut, 'dd/MM/yyyy')}">10/01/2027</td>
+            <td th:text="${#temporals.format(t.dateFin, 'dd/MM/yyyy')}">20/01/2027</td>
+            <td th:text="#{${'statut.tournoi.' + t.statut}}">Inscriptions ouvertes</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-primary" th:href="@{/organisateur/tournois/{id}(id=${t.id})}">Ouvrir</a></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(tournois)}"><td colspan="6" class="text-muted">Aucun tournoi pour le moment.</td></tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

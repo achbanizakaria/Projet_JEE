@@ -23,6 +23,11 @@ public class ClubService {
     public List<ClubVue> lister() {
         return clubRepository.findAll(Sort.by("nom")).stream().map(ClubService::vue).toList();
     }
+    @Transactional(readOnly = true)
+    public ClubVue trouver(Long id) {
+        return clubRepository.findById(id).map(ClubService::vue)
+                .orElseThrow(() -> new RegleMetierException("Club introuvable"));
+    }
 
     @Transactional
     public ClubVue creer(ClubForm form) {

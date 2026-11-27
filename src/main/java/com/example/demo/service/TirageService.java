@@ -28,7 +28,7 @@ public class TirageService {
 
     @Transactional
     public void effectuerTirage(Long organisateurId, Long tournoiId) {
-        Tournoi t = acces.tournoiDe(organisateurId, tournoiId);
+        Tournoi t = acces.planifierTournoi(organisateurId, tournoiId);
         if (t.getStatut() != StatutTournoi.INSCRIPTION_CLOSE) {
             throw new RegleMetierException(
                     "Le tirage n'est possible qu'une fois, après la clôture des inscriptions");
@@ -110,7 +110,7 @@ public class TirageService {
     /** Annulation explicite, possible tant qu'aucun résultat n'est saisi. */
     @Transactional
     public void annulerTirage(Long organisateurId, Long tournoiId) {
-        Tournoi t = acces.tournoiDe(organisateurId, tournoiId);
+        Tournoi t = acces.modifierTournoi(organisateurId, tournoiId);
         if (t.getStatut() != StatutTournoi.TIRAGE_EFFECTUE) {
             throw new RegleMetierException(
                     "Annulation impossible : aucun tirage en attente, ou des résultats sont déjà saisis");

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Composition')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<main class="container" style="max-width: 720px">
+    <h1 class="h4" th:text="|Composition de ${nomEquipe}|"></h1>
+    <p th:text="|${detail.match.equipe1} – ${detail.match.equipe2} · ${#temporals.format(detail.match.dateHeure, 'dd/MM/yyyy HH:mm')}|"></p>
+    <form method="post" th:object="${compositionForm}" class="card card-body"
+          th:action="${equipeCible == null} ? @{/joueur/matchs/{id}/composition(id=${detail.match.id})} : @{/organisateur/matchs/{id}/equipes/{eid}/composition(id=${detail.match.id},eid=${equipeCible})}">
+        <div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}"><div th:each="e : ${#fields.allErrors()}" th:text="${e}"></div></div>
+        <fieldset class="mb-3"><legend class="h6">Cochez les cinq titulaires</legend>
+            <div class="form-check" th:each="j : ${effectif}">
+                <input class="form-check-input" type="checkbox" th:field="*{titulaires}" th:value="${j.id}">
+                <label class="form-check-label" th:for="${#ids.prev('titulaires')}" th:text="|${j.prenom} ${j.nom}|"></label>
+            </div>
+        </fieldset>
+        <label class="form-label" for="remplacant">Remplaçant</label>
+        <select class="form-select mb-3" th:field="*{remplacant}">
+            <option value="">Aucun remplaçant</option>
+            <option th:each="j : ${effectif}" th:value="${j.id}" th:text="|${j.prenom} ${j.nom}|"></option>
+        </select>
+        <button class="btn btn-primary">Enregistrer la composition</button>
+    </form>
+    <a class="btn btn-link" th:href="@{/consultation/matchs/{id}(id=${detail.match.id})}">Retour au match</a>
+</main>
+</body></html>

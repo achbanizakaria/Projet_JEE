@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/base :: tete('Feuille de résultat')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/base :: navigation}"></nav>
+<main class="container">
+    <h1 class="h4" th:text="|Résultat · ${detail.match.equipe1} – ${detail.match.equipe2}|"></h1>
+    <p th:text="|Match n° ${detail.match.numero} · ${#temporals.format(detail.match.dateHeure, 'dd/MM/yyyy HH:mm')}|"></p>
+    <form method="post" th:action="@{/organisateur/matchs/{id}/resultat(id=${detail.match.id})}" th:object="${resultatForm}">
+        <div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}"><div th:each="e : ${#fields.allErrors()}" th:text="${e}"></div></div>
+        <fieldset class="card card-body mb-3"><legend class="h5">Score du match</legend>
+            <div class="row">
+                <label class="col" th:inline="text">[[${detail.match.equipe1}]] <input class="form-control" type="number" min="0" required th:field="*{scoreEquipe1}"></label>
+                <label class="col" th:inline="text">[[${detail.match.equipe2}]] <input class="form-control" type="number" min="0" required th:field="*{scoreEquipe2}"></label>
+            </div>
+        </fieldset>
+        <fieldset class="card card-body mb-3" th:if="${detail.match.phase.name() != 'GROUPES'}"><legend class="h5">Tirs au but en cas d’égalité</legend>
+            <div class="row">
+                <label class="col" th:inline="text">[[${detail.match.equipe1}]] <input class="form-control" type="number" min="0" th:field="*{tirsAuBut1}"></label>
+                <label class="col" th:inline="text">[[${detail.match.equipe2}]] <input class="form-control" type="number" min="0" th:field="*{tirsAuBut2}"></label>
+            </div>
+        </fieldset>
+        <div th:replace="~{fragments/matchs :: saisie('joueursEquipe1', ${detail.match.equipe1}, ${resultatForm.joueursEquipe1}, ${effectif1}, ${detail.equipe1})}"></div>
+        <div th:replace="~{fragments/matchs :: saisie('joueursEquipe2', ${detail.match.equipe2}, ${resultatForm.joueursEquipe2}, ${effectif2}, ${detail.equipe2})}"></div>
+        <button class="btn btn-primary mb-3">Enregistrer le résultat</button>
+        <a class="btn btn-link mb-3" th:href="@{/consultation/matchs/{id}(id=${detail.match.id})}">Retour au match</a>
+    </form>
+</main>
+</body></html>

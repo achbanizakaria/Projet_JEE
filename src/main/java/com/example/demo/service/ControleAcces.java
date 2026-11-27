@@ -35,6 +35,22 @@ public class ControleAcces {
     public Tournoi tournoiDe(Long organisateurId, Long tournoiId) {
         Tournoi t = tournoiRepository.findById(tournoiId)
                 .orElseThrow(() -> new RegleMetierException("Tournoi introuvable"));
+        return verifierResponsable(organisateurId, t);
+    }
+
+    public Tournoi modifierTournoi(Long organisateurId, Long tournoiId) {
+        return verifierResponsable(organisateurId, tournoiRepository.findTournoiById(tournoiId)
+                .orElseThrow(() -> new RegleMetierException("Tournoi introuvable")));
+    }
+
+    /** Le stade est commun à tous les tournois. Les planifications concurrentes prennent les verrous dans le même ordre. */
+    public Tournoi planifierTournoi(Long organisateurId, Long tournoiId) {
+        Tournoi tournoi = tournoiRepository.findAllByOrderByIdAsc().stream().filter(t -> t.getId().equals(tournoiId))
+                .findFirst().orElseThrow(() -> new RegleMetierException("Tournoi introuvable"));
+        return verifierResponsable(organisateurId, tournoi);
+    }
+
+    private Tournoi verifierResponsable(Long organisateurId, Tournoi t) {
         if (!t.getOrganisateur().getId().equals(organisateurId)) {
             throw new AccesRefuseException("Ce tournoi n'est pas placé sous votre responsabilité");
         }
